@@ -28,6 +28,10 @@ permissions:
 jobs:
   generate:
     runs-on: ubuntu-22.04
+    # cargo on the runner is a rustup proxy; pin the toolchain it dispatches to so the
+    # cargokit shim's `cargo` and `cargo vendor` don't need a configured default.
+    env:
+      RUSTUP_TOOLCHAIN: stable
     steps:
       - uses: actions/checkout@v4
 
