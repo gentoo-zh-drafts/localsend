@@ -1,0 +1,58 @@
+name: Generate flutter-deps
+
+# One-click generation of localsend-<version>-flutter-deps.tar.xz and upload to a
+# GitHub release. Trigger it from the Actions tab ("Run workflow") with the target
+# localsend version, or by pushing a `v<version>` tag.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "localsend version (e.g. 1.17.0)"
+        required: true
+      flutter_version:
+        description: "Flutter SDK version"
+        required: true
+        default: "3.24.5"
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve versions
+        id: v
+        run: |
+          if [ "${{ github.event_name }}" = push ]; then
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+            echo "flutter=3.24.5" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+            echo "flutter=${{ inputs.flutter_version }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Flutter Linux desktop toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            clang cmake ninja-build pkg-config \
+            libgtk-3-dev libayatana-appindicator3-dev
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Generate bundle
+        run: ./generate-flutter-deps.sh "${{ steps.v.outputs.version }}" "${{ steps.v.outputs.flutter }}"
+
+      - name: Publish to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "${{ steps.v.outputs.version }}"
+          files: localsend-${{ steps.v.outputs.version }}-flutter-deps.tar.xz
