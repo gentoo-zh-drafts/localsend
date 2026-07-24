@@ -53,11 +53,11 @@ if [ -z "${TASKSET}" ] && command -v taskset >/dev/null; then
 fi
 ${TASKSET} flutter --no-version-check pub run build_runner build -d
 
-# cargokit (rhttp's Rust build) drives the toolchain through rustup; shim it to the
-# system cargo when rustup is absent (CI installs a real one, so leave that alone).
-if ! command -v rustup >/dev/null; then
-  mkdir -p "${WORK}/shim"
-  cat > "${WORK}/shim/rustup" <<'SH'
+# cargokit (rhttp's Rust build) drives the toolchain through rustup and honours the
+# app's rust-toolchain.toml pin (1.84.1), which the runner's rustup won't have. Shim
+# rustup to the plain system cargo — the vendored bundle is toolchain-agnostic.
+mkdir -p "${WORK}/shim"
+cat > "${WORK}/shim/rustup" <<'SH'
 #!/bin/sh
 case "$1" in
   toolchain) [ "$2" = list ] && echo "stable-x86_64-unknown-linux-gnu (default)"; exit 0 ;;
@@ -66,9 +66,8 @@ case "$1" in
   *)         exit 0 ;;
 esac
 SH
-  chmod +x "${WORK}/shim/rustup"
-  export PATH="${WORK}/shim:${PATH}"
-fi
+chmod +x "${WORK}/shim/rustup"
+export PATH="${WORK}/shim:${PATH}"
 
 # Flutter's APPLY_STANDARD_SETTINGS forces -Werror; a newer libayatana-appindicator
 # marks app_indicator_new() deprecated and breaks the tray_manager plugin. The ebuild
