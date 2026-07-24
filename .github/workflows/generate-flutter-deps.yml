@@ -1,8 +1,8 @@
 name: Generate flutter-deps
 
-# One-click generation of localsend-<version>-flutter-deps.tar.xz and upload to a
-# GitHub release. Trigger it from the Actions tab ("Run workflow") with the target
-# localsend version, or by pushing a `v<version>` tag.
+# Build localsend-<version>-flutter-deps.tar.xz. A manual run uploads it as a
+# workflow artifact by default (safe to test); tick "publish" — or push a v<version>
+# tag — to upload it to the <version> release, replacing the existing asset.
 
 on:
   workflow_dispatch:
@@ -14,6 +14,10 @@ on:
         description: "Flutter SDK version"
         required: true
         default: "3.24.5"
+      publish:
+        description: "Upload to the <version> release (replaces the existing asset)"
+        type: boolean
+        default: false
   push:
     tags:
       - "v*"
@@ -27,15 +31,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Resolve versions
+      - name: Resolve inputs
         id: v
         run: |
           if [ "${{ github.event_name }}" = push ]; then
             echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
             echo "flutter=3.24.5" >> "$GITHUB_OUTPUT"
+            echo "publish=true" >> "$GITHUB_OUTPUT"
           else
             echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
             echo "flutter=${{ inputs.flutter_version }}" >> "$GITHUB_OUTPUT"
+            echo "publish=${{ inputs.publish }}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Install Flutter Linux desktop toolchain
@@ -45,13 +51,19 @@ jobs:
             clang cmake ninja-build pkg-config \
             libgtk-3-dev libayatana-appindicator3-dev
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@stable
 
       - name: Generate bundle
         run: ./generate-flutter-deps.sh "${{ steps.v.outputs.version }}" "${{ steps.v.outputs.flutter }}"
 
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: localsend-${{ steps.v.outputs.version }}-flutter-deps
+          path: localsend-${{ steps.v.outputs.version }}-flutter-deps.tar.xz
+
       - name: Publish to release
+        if: steps.v.outputs.publish == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: "${{ steps.v.outputs.version }}"
