@@ -13,4 +13,5 @@ jobs:
         uses: projg2/crate-dist-mirror-action@v2
         with:
           ssh-private-key: ${{ secrets.ssh_key }}
+          directories: packages/localsend_isolates/rust
           tag-filter: 'v[0-9]*'
